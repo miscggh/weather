@@ -1,0 +1,30 @@
+name: Update shared weather.json
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 minutes
+  workflow_dispatch: {}       # lets you also trigger it manually from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch weather (single batched Open-Meteo call)
+        run: node update-weather.mjs
+
+      - name: Commit and push if weather.json changed
+        run: |
+          git config user.name "weather-bot"
+          git config user.email "actions@github.com"
+          git add weather.json
+          git diff --staged --quiet || git commit -m "Update weather.json"
+          git push
