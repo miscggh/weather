@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Top10 World Clocks</title>
+<style>
+:root{--size:clamp(100px,16vmin,380px);--pad:clamp(10px,1.4vmin,28px);--gap:clamp(10px,1.8vmin,30px)}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:'Segoe UI',sans-serif;background:radial-gradient(circle at center,#858500,#000);color:#fff;min-height:100vh;overflow:hidden;display:flex;align-items:center;justify-content:center}
+body:before{content:'';position:fixed;inset:0;background:url('http://www.transparenttextures.com/patterns/fabric-plaid.png');opacity:.15;pointer-events:none}
+/* Stage locks the whole layout to a 500:1080 aspect ratio.
+   It scales to fit any viewport (relative, not fixed px) while
+   always keeping that exact width:height proportion. */
+#stage{position:relative;box-sizing:border-box;width:min(100vw,calc(100vh * 400 / 768));height:min(100vh,calc(100vw * 1080 / 500));margin:auto;overflow:hidden}
+.grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:var(--gap);padding:var(--gap);box-sizing:border-box;width:100%;height:100%;margin:0}
+.wrap{position:relative;box-sizing:border-box;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px solid rgba(212,175,55,0.4);border-radius:16px;padding:var(--pad) 10px;background:rgba(255,255,255,0.03);opacity:1;transform:scale(1);transition:opacity .55s ease,transform .55s ease}
+.wrap.rotating{opacity:0;transform:scale(.94)}
+.wrap.pinned{border-color:rgba(212,175,55,0.85)}
+.clock{width:100%;max-width:100%;flex:0 0 auto;aspect-ratio:1/1;margin:auto;border:clamp(2px,0.5vw,5px) solid #fff;border-radius:50%;position:relative;background:radial-gradient(circle,#1b2540,#0a0f2c);background-image:url('https://i.postimg.cc/KvQMrpgN/CGGH-LOGO-3.png');background-size:70%;background-repeat:no-repeat;background-position:center;transition:background 0.8s ease,border-color 0.8s ease,box-shadow 0.8s ease}
+.clock.day{border-color:#ffe6a0;background:url('https://i.postimg.cc/KvQMrpgN/CGGH-LOGO-3.png') center/70% no-repeat,radial-gradient(circle,#3a5f8a,#16324f);box-shadow:0 0 clamp(10px,2.5vmin,28px) rgba(255,214,140,0.35)}
+.clock.night{border-color:#c9d4ff;background:url('https://i.postimg.cc/KvQMrpgN/CGGH-LOGO-3.png') center/70% no-repeat,radial-gradient(circle,#1b2540,#05070f);box-shadow:0 0 clamp(8px,2vmin,22px) rgba(120,140,255,0.25)}
+.daynight-icon{position:absolute;top:6%;right:8%;width:clamp(26px,6.5cqmin,52px);height:clamp(26px,6.5cqmin,52px);line-height:0;pointer-events:none;opacity:.6;z-index:0}
+.daynight-icon svg{width:100%;height:100%;display:block}
+.wx-layer{position:absolute;inset:0;border-radius:50%;overflow:hidden;pointer-events:none;z-index:0}
+.cloud{position:absolute;background:rgba(255,255,255,.55);border-radius:50%;filter:blur(3px);display:none;animation:drift linear infinite}
+.wx-layer.wx-cloudy .cloud{display:block}
+.wx-layer.wx-sunny{background:radial-gradient(circle,rgba(255,214,120,.28),transparent 68%);animation:pulse 3.2s ease-in-out infinite}
+.rain-layer{position:absolute;inset:0;border-radius:16px;overflow:hidden;pointer-events:none;z-index:5}
+.drop{position:absolute;left:0;width:1.5px;margin-left:-0.5px;height:clamp(7px,1.5vmin,14px);background:linear-gradient(to bottom,rgba(190,215,255,0),rgba(190,215,255,.9));display:none;animation:fallPath linear infinite}
+.rain-layer.raining .drop{display:block}
+@keyframes fallPath{0%{top:var(--y0);opacity:0}12%{opacity:1}88%{opacity:1}100%{top:var(--y1);opacity:0}}
+.splash{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;pointer-events:none;display:none}
+.splash i{position:absolute;display:block;background:linear-gradient(to top,rgba(190,215,255,0),rgba(200,222,255,.95));border-radius:1px}
+.splash i.l{left:20%;top:20%;width:2px;height:6px;transform:rotate(-30deg)}
+.splash i.r{right:20%;top:20%;width:2px;height:6px;transform:rotate(30deg)}
+.splash em{position:absolute;left:50%;top:60%;width:100%;height:45%;border:1.4px solid rgba(190,215,255,.8);border-radius:50%;transform:translate(-50%,-50%) scaleY(.45);font-style:normal}
+.rain-layer.raining .splash{display:block;animation:splashPulse linear infinite}
+@keyframes splashPulse{0%,82%{opacity:0;transform:scale(.35)}86%{opacity:1;transform:scale(.75)}100%{opacity:0;transform:scale(1.5)}}
+@keyframes drift{0%{transform:translateX(-20%)}50%{transform:translateX(20%)}100%{transform:translateX(-20%)}}
+@keyframes pulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+.hand{position:absolute;bottom:50%;left:50%;transform-origin:bottom center}
+.hour{width:16%;height:25%;background:#fff;clip-path:polygon(50% 0,65% 10%,50% 100%,35% 10%)}
+.minute{width:12%;height:35%;background:#fff;clip-path:polygon(50% 0,65% 10%,50% 100%,35% 10%)}
+.hour .fill,.minute .fill{position:absolute;inset:1.1px;background:linear-gradient(to top,#b08d57,#d4af37);clip-path:inherit}
+.second{width:1.5%;height:41%;background:red}
+.second:after{content:'';position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:7px;height:7px;background:red;border-radius:50%}
+.center{position:absolute;top:50%;left:50%;width:5.5%;height:5.5%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#d4af37,#8b6b29)}
+.number{position:absolute;font-size:clamp(9px,1.1vw,14px);transform:translate(-50%,-50%);z-index:1}
+.label{margin-top:10px;font-weight:bold;font-size:clamp(12px,1.3vw,16px)}
+.dt,.dig{font-weight:normal;font-size:clamp(10px,1vw,13px);color:#ddd;margin-top:2px}
+.dig{color:#d4af37;font-family:monospace}
+.wxinfo{margin-top:3px;font-size:clamp(12px,1.25vw,16px);color:#bcd6ff;font-weight:bold}
+.wx-icon{display:inline-block;width:1.6em;height:1.6em;vertical-align:-0.4em;line-height:0}
+.wx-icon svg{width:100%;height:100%;display:block}
+</style></head><body><div id="stage"><div class="grid" id="grid"></div></div>
+<script>
+/* Fixed anchor city - always in slot 0 */
+const PINNED = ["Makati","Asia/Manila",14.5547,121.0244];
+
+/* Pool of rotating cities (name, IANA tz, lat, lon) - 39 cities cycle through the remaining 9 slots */
+const POOL=[
+["Sydney","Australia/Sydney",-33.8688,151.2093],
+["New Delhi","Asia/Kolkata",28.6139,77.2090],
+["Beijing","Asia/Shanghai",39.9042,116.4074],
+["London","Europe/London",51.5074,-0.1278],
+["Tokyo","Asia/Tokyo",35.6762,139.6503],
+["Berlin","Europe/Berlin",52.52,13.405],
+["Paris","Europe/Paris",48.8566,2.3522],
+["New York","America/New_York",40.7128,-74.0060],
+["Los Angeles","America/Los_Angeles",34.0522,-118.2437],
+["Dubai","Asia/Dubai",25.2048,55.2708],
+["Singapore","Asia/Singapore",1.3521,103.8198],
+["Hong Kong","Asia/Hong_Kong",22.3193,114.1694],
+["Seoul","Asia/Seoul",37.5665,126.9780],
+["Bangkok","Asia/Bangkok",13.7563,100.5018],
+["Jakarta","Asia/Jakarta",-6.2088,106.8456],
+["Mumbai","Asia/Kolkata",19.0760,72.8777],
+["Moscow","Europe/Moscow",55.7558,37.6173],
+["Cairo","Africa/Cairo",30.0444,31.2357],
+["Johannesburg","Africa/Johannesburg",-26.2041,28.0473],
+["Nairobi","Africa/Nairobi",-1.2921,36.8219],
+["Istanbul","Europe/Istanbul",41.0082,28.9784],
+["Rome","Europe/Rome",41.9028,12.4964],
+["Madrid","Europe/Madrid",40.4168,-3.7038],
+["Amsterdam","Europe/Amsterdam",52.3676,4.9041],
+["Toronto","America/Toronto",43.6532,-79.3832],
+["Chicago","America/Chicago",41.8781,-87.6298],
+["Mexico City","America/Mexico_City",19.4326,-99.1332],
+["Sao Paulo","America/Sao_Paulo",-23.5505,-46.6333],
+["Buenos Aires","America/Argentina/Buenos_Aires",-34.6037,-58.3816],
+["Vancouver","America/Vancouver",49.2827,-123.1207],
+["Honolulu","Pacific/Honolulu",21.3069,-157.8583],
+["Auckland","Pacific/Auckland",-36.8485,174.7633],
+["Dublin","Europe/Dublin",53.3498,-6.2603],
+["Zurich","Europe/Zurich",47.3769,8.5417],
+["Stockholm","Europe/Stockholm",59.3293,18.0686],
+["Lagos","Africa/Lagos",6.5244,3.3792],
+["Riyadh","Asia/Riyadh",24.7136,46.6753],
+["Kuala Lumpur","Asia/Kuala_Lumpur",3.1390,101.6869],
+["Taipei","Asia/Taipei",25.0330,121.5654]
+];
+
+const ROTATE_MS=18000;      // how often the 9 rotating slots change city
+const WEATHER_REFRESH_MS=600000; // refresh weather every 10 min
+
+const grid=document.getElementById('grid');
+const SLOTS=9;
+
+/* Build the 14 static clock slots once. Slot 0 is pinned (Makati), slots 1-13 rotate. */
+for(let i=0;i<SLOTS;i++){
+  let w=document.createElement('div');
+  w.className='wrap'+(i===0?' pinned':'');
+  w.id='wrap'+i;
+  w.innerHTML=`<div class=clock id=c${i}><div class="wx-layer" id=wx${i}></div><div class="daynight-icon" id=dn${i}></div><div class="hand hour"><div class=fill></div></div><div class="hand minute"><div class=fill></div></div><div class="hand second"></div><div class=center></div></div><div class=label><span id=label${i}>...</span><div class='dt' id='dt${i}'></div><div class='dig' id='dig${i}'></div><div class='wxinfo' id='wxinfo${i}'>…</div></div><div class="rain-layer" id=rain${i}></div>`;
+  grid.appendChild(w);
+  let c=w.querySelector('.clock');
+  for(let n=1;n<=12;n++){let a=(n*30-90)*Math.PI/180,x=50+Math.cos(a)*40,y=50+Math.sin(a)*40,d=document.createElement('div');d.className='number';d.style.left=x+'%';d.style.top=y+'%';d.textContent=n;c.appendChild(d);}
+  let wxLayer=w.querySelector('.wx-layer');
+  let rainLayer=w.querySelector('.rain-layer');
+  const RAIN_DROPS=36; // spread across the full card width so rain covers the entire rectangular border, top to bottom
+  for(let k=0;k<RAIN_DROPS;k++){
+    let x=(2+Math.random()*96).toFixed(1);
+    let dur=(0.85+Math.random()*0.75).toFixed(2);
+    let delay=(-Math.random()*dur).toFixed(2);
+    let dr=document.createElement('div');
+    dr.className='drop';
+    dr.style.left=x+'%';
+    dr.style.setProperty('--y0','0%');
+    dr.style.setProperty('--y1','100%');
+    dr.style.top='0%';
+    dr.style.animationDuration=dur+'s';
+    dr.style.animationDelay=delay+'s';
+    rainLayer.appendChild(dr);
+    let sp=document.createElement('div');
+    sp.className='splash';
+    sp.style.left=x+'%';
+    sp.style.top='100%';
+    sp.style.animationDuration=dur+'s';
+    sp.style.animationDelay=delay+'s';
+    sp.innerHTML='<i class="l"></i><i class="r"></i><em></em>';
+    rainLayer.appendChild(sp);
+  }
+  for(let k=0;k<3;k++){let cl=document.createElement('div');cl.className='cloud';let sz=(30+Math.random()*20);cl.style.width=sz+'%';cl.style.height=(sz*0.55)+'%';cl.style.top=(8+k*22+Math.random()*8)+'%';cl.style.left=(Math.random()*40)+'%';cl.style.animationDuration=(14+Math.random()*8)+'s';cl.style.animationDelay=(-Math.random()*12)+'s';wxLayer.appendChild(cl);}
+}
+
+/* slotCities holds the current city assignment for each of the 10 visible clocks */
+let slotCities=new Array(SLOTS);
+
+function shuffle(arr){
+  arr=arr.slice();
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  return arr;
+}
+
+let shuffledPool=shuffle(POOL);
+let cursor=0;
+
+function nextCity(){
+  if(cursor>=shuffledPool.length){shuffledPool=shuffle(POOL);cursor=0;}
+  return shuffledPool[cursor++];
+}
+
+function classifyWeather(code){
+  if(code===0||code===1)return'sunny';
+  if([2,3,45,48].includes(code))return'cloudy';
+  if([51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(code))return'rain';
+  if([71,73,75,77,85,86].includes(code))return'cloudy';
+  return'cloudy';
+}
+/* Font-free icons: plain inline SVG shapes rather than emoji characters.
+   Emoji glyphs (☀️🌙☁️🌧️) depend on a system color-emoji font (e.g. Noto
+   Color Emoji) being installed. Windows ships one, so they render fine
+   there, but many Raspberry Pi / signage-player OS images don't, so the
+   glyphs fall back to a generic placeholder (tofu box, "*", etc). SVG
+   shapes render identically everywhere regardless of installed fonts.
+   Each icon uses gradients + a highlight instead of a flat fill to read
+   more like a shaded/glossy emoji glyph; no blur filters are used so they
+   stay cheap to rasterize on weak GPUs (e.g. Raspberry Pi 3). */
+const SUN_SVG='<svg viewBox="0 0 24 24"><defs><radialGradient id="sunGrad" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#fff6c0"/><stop offset="55%" stop-color="#ffd35c"/><stop offset="100%" stop-color="#ff9d1f"/></radialGradient><linearGradient id="rayGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff2b8"/><stop offset="60%" stop-color="#ffd35c"/><stop offset="100%" stop-color="#ff9d1f"/></linearGradient><radialGradient id="sunGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffe28a" stop-opacity=".6"/><stop offset="100%" stop-color="#ffe28a" stop-opacity="0"/></radialGradient></defs><circle cx="12" cy="12" r="11" fill="url(#sunGlow)"/><g fill="url(#rayGrad)">'+
+[0,45,90,135,180,225,270,315].map(a=>`<polygon points="12,0.8 13.3,6.6 10.7,6.6" transform="rotate(${a} 12 12)"/>`).join('')+
+'</g><circle cx="12" cy="12" r="5.6" fill="url(#sunGrad)"/><circle cx="10" cy="9.5" r="2" fill="#fff" opacity=".4"/></svg>';
+const MOON_SVG='<svg viewBox="0 0 24 24"><defs><linearGradient id="moonGrad" x1="0" y1="0" x2="0.7" y2="1"><stop offset="0%" stop-color="#f2f5ff"/><stop offset="60%" stop-color="#c9d4ff"/><stop offset="100%" stop-color="#8a9bd6"/></linearGradient></defs><path d="M20 12.7A8.5 8.5 0 1 1 11.3 4a6.7 6.7 0 0 0 8.7 8.7z" fill="url(#moonGrad)"/><circle cx="13.5" cy="8" r="1.1" fill="#8a9bd6" opacity=".5"/><circle cx="16" cy="11.8" r=".75" fill="#8a9bd6" opacity=".4"/><circle cx="11.5" cy="13.3" r=".55" fill="#8a9bd6" opacity=".35"/></svg>';
+const CLOUD_SVG='<svg viewBox="0 0 24 24"><defs><linearGradient id="cloudGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#c7d3e8"/></linearGradient></defs><path d="M7 18a4 4 0 0 1-.6-7.96 5 5 0 0 1 9.6-1.9A4.5 4.5 0 0 1 17.5 18H7z" fill="url(#cloudGrad)"/><ellipse cx="9" cy="11" rx="3" ry="1.6" fill="#fff" opacity=".55"/></svg>';
+const RAIN_SVG='<svg viewBox="0 0 24 24"><defs><linearGradient id="rainCloudGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e7edf9"/><stop offset="100%" stop-color="#a9bcdb"/></linearGradient><linearGradient id="dropGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#bcd4ff"/><stop offset="100%" stop-color="#5f8fe0"/></linearGradient></defs><path d="M7 14a4 4 0 0 1-.6-7.96 5 5 0 0 1 9.6-1.9A4.5 4.5 0 0 1 17.5 14H7z" fill="url(#rainCloudGrad)"/><ellipse cx="9" cy="8" rx="2.6" ry="1.3" fill="#fff" opacity=".5"/><path d="M8 16.5c0 1.2.9 2.2 1.8 2.2s1.8-1 1.8-2.2-1.8-3.6-1.8-3.6-1.8 2.4-1.8 3.6z" fill="url(#dropGrad)"/><path d="M12.2 17.3c0 1.05.8 1.9 1.6 1.9s1.6-.85 1.6-1.9-1.6-3.2-1.6-3.2-1.6 2.15-1.6 3.2z" fill="url(#dropGrad)"/><path d="M16 16.5c0 1.2.9 2.2 1.8 2.2s1.8-1 1.8-2.2-1.8-3.6-1.8-3.6-1.8 2.4-1.8 3.6z" fill="url(#dropGrad)"/></svg>';
+const wxIcon={sunny:SUN_SVG,cloudy:CLOUD_SVG,rain:RAIN_SVG};
+
+/* Every city that can ever appear (the pinned city + the full rotating
+   pool) gets its weather fetched and cached here, keyed by city name -
+   not just whichever 4 happen to be on screen right now. That way weather
+   for the whole roster stays current in the background, and a city that
+   rotates into view already has fresh data waiting instead of showing a
+   placeholder while it fetches. */
+const ALL_CITIES=[PINNED,...POOL];
+const weatherCache={}; // cityName -> {cat, temp, ts}
+
+function paintSlotWeather(i){
+  const z=slotCities[i];
+  if(!z)return;
+  const w=weatherCache[z[0]];
+  const wxLayer=document.getElementById('wx'+i);
+  const rainLayer=document.getElementById('rain'+i);
+  const info=document.getElementById('wxinfo'+i);
+  if(!w){
+    wxLayer.classList.remove('wx-sunny','wx-cloudy');
+    rainLayer.classList.remove('raining');
+    info.textContent='…';
+    return;
+  }
+  wxLayer.classList.remove('wx-sunny','wx-cloudy');
+  rainLayer.classList.remove('raining');
+  if(w.cat==='rain')rainLayer.classList.add('raining');
+  else wxLayer.classList.add('wx-'+w.cat);
+  info.innerHTML=`<span class="wx-icon">${wxIcon[w.cat]}</span> ${w.temp}°C`;
+}
+
+/* Primary weather source: a single pre-generated JSON file covering every
+   city in the roster. Open-Meteo (per-city requests) is only used as a
+   fallback if the GitHub file can't be reached or doesn't contain a given
+   city's data. Nothing here ever fires unless navigator.onLine is true. */
+const GITHUB_WEATHER_URL='https://miscggh.github.io/weather/weather.json';
+
+async function fetchGithubWeatherData(){
+  const res=await fetch(GITHUB_WEATHER_URL,{cache:'no-store'});
+  if(!res.ok)throw new Error('github http '+res.status);
+  const j=await res.json();
+  if(!j||!j.cities)throw new Error('github: malformed payload');
+  return j.cities;
+}
+
+async function fetchCityFromOpenMeteo(z){
+  let res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${z[2]}&longitude=${z[3]}&current=temperature_2m,weather_code`);
+  let j=await res.json();
+  weatherCache[z[0]]={
+    temp:Math.round(j.current.temperature_2m),
+    cat:classifyWeather(j.current.weather_code),
+    ts:Date.now()
+  };
+}
+
+/* Fetch/refresh weather for a single city (e.g. when it rotates into a
+   slot). Tries GitHub first; falls back to Open-Meteo only if GitHub is
+   unreachable or doesn't have this city. */
+async function fetchWeatherForCity(z){
+  if(!navigator.onLine)return; // no connection - don't attempt, just keep showing whatever's cached
+  try{
+    const cities=await fetchGithubWeatherData();
+    const c=cities[z[0]];
+    if(!c)throw new Error('github: no data for '+z[0]);
+    weatherCache[z[0]]={temp:Math.round(c.temp),cat:classifyWeather(c.code),ts:Date.now()};
+  }catch(e){
+    try{
+      await fetchCityFromOpenMeteo(z);
+    }catch(e2){
+      // Both sources failed; leave any previously cached value in place.
+    }
+  }
+  // Repaint any currently-visible slot showing this city, whether the
+  // fetch succeeded or not (e.g. clears a stale spinner on repeated failure).
+  for(let i=0;i<SLOTS;i++){
+    if(slotCities[i]&&slotCities[i][0]===z[0])paintSlotWeather(i);
+  }
+}
+
+/* Refresh weather for the whole roster. GitHub is a single request that
+   covers every city; only cities missing from that payload (or the whole
+   fetch failing) fall back to individual Open-Meteo requests. */
+async function fetchAllWeather(){
+  if(!navigator.onLine)return; // no connection - never initiate any fetch
+  try{
+    const cities=await fetchGithubWeatherData();
+    const missing=[];
+    ALL_CITIES.forEach(z=>{
+      const c=cities[z[0]];
+      if(c){
+        weatherCache[z[0]]={temp:Math.round(c.temp),cat:classifyWeather(c.code),ts:Date.now()};
+      }else{
+        missing.push(z);
+      }
+    });
+    for(let i=0;i<SLOTS;i++)paintSlotWeather(i);
+    missing.forEach(fetchCityViaOpenMeteoAndPaint);
+  }catch(e){
+    // GitHub endpoint unreachable - fall back to Open-Meteo for every city
+    ALL_CITIES.forEach(fetchCityViaOpenMeteoAndPaint);
+  }
+}
+
+async function fetchCityViaOpenMeteoAndPaint(z){
+  try{
+    await fetchCityFromOpenMeteo(z);
+  }catch(e){
+    // leave cache as-is
+  }
+  for(let i=0;i<SLOTS;i++){
+    if(slotCities[i]&&slotCities[i][0]===z[0])paintSlotWeather(i);
+  }
+}
+
+function setSlotCity(i,cityData){
+  slotCities[i]=cityData;
+  document.getElementById('label'+i).textContent=cityData[0];
+  paintSlotWeather(i); // show cached weather immediately (works offline too)
+  if(navigator.onLine)fetchWeatherForCity(cityData); // then refresh, but only if we're actually online
+}
+
+/* Initial assignment: slot 0 pinned to Makati, slots 1-9 filled from the pool */
+setSlotCity(0,PINNED);
+for(let i=1;i<SLOTS;i++){
+  setSlotCity(i,nextCity());
+}
+
+/* Rotate the 9 non-pinned slots through the pool with a fade transition */
+function rotateSlots(){
+  for(let i=1;i<SLOTS;i++){
+    document.getElementById('wrap'+i).classList.add('rotating');
+  }
+  setTimeout(()=>{
+    for(let i=1;i<SLOTS;i++){
+      setSlotCity(i,nextCity());
+    }
+    for(let i=1;i<SLOTS;i++){
+      document.getElementById('wrap'+i).classList.remove('rotating');
+    }
+  },550);
+}
+
+function upd(){
+  for(let i=0;i<SLOTS;i++){
+    const z=slotCities[i];
+    if(!z)continue;
+    let p=new Intl.DateTimeFormat('en-US',{timeZone:z[1],hour:'numeric',minute:'numeric',second:'numeric',hour12:true}).formatToParts(new Date());
+    let h=+p.find(x=>x.type=='hour').value,m=+p.find(x=>x.type=='minute').value,s=+p.find(x=>x.type=='second').value;
+    let h24=+new Intl.DateTimeFormat('en-US',{timeZone:z[1],hour:'numeric',hour12:false}).format(new Date())%24;
+    let c=document.getElementById('c'+i);
+    let isDay=h24>=6&&h24<18;
+    let wx=weatherCache[z[0]];
+    let isRainy=!!(wx&&wx.cat==='rain');
+    let iconKey=isDay+'|'+isRainy;
+    if(c.dataset.iconKey!==iconKey){
+      c.dataset.iconKey=iconKey;
+      document.getElementById('dn'+i).innerHTML=isDay?(isRainy?'':SUN_SVG):MOON_SVG;
+    }
+    c.classList.toggle('day',isDay);
+    c.classList.toggle('night',!isDay);
+    c.querySelector('.hour').style.transform=`translateX(-50%) rotate(${h*30+m/2}deg)`;
+    c.querySelector('.minute').style.transform=`translateX(-50%) rotate(${m*6}deg)`;
+    c.querySelector('.second').style.transform=`translateX(-50%) rotate(${s*6}deg)`;
+    let d=new Intl.DateTimeFormat('en-US',{timeZone:z[1],weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(new Date());
+    let t=new Intl.DateTimeFormat('en-US',{timeZone:z[1],hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}).format(new Date());
+    document.getElementById('dt'+i).textContent=d;
+    document.getElementById('dig'+i).textContent=t;
+  }
+}
+
+upd();setInterval(upd,1000);
+setInterval(rotateSlots,ROTATE_MS);
+setInterval(fetchAllWeather,WEATHER_REFRESH_MS);
+
+/* Weather fetches fail silently (see catch in fetchWeatherForCity) when the
+   device is offline. As soon as the browser reports connectivity again -
+   whether that's the initial load or reconnecting after a dropout - force
+   an immediate refresh for every city in the pool (not just whichever 4
+   are currently on screen) instead of waiting for the next 10-minute
+   interval. */
+window.addEventListener('online',fetchAllWeather);
+if(navigator.onLine){
+  fetchAllWeather();
+}
+
+</script></body></html>
