@@ -4,7 +4,6 @@
 // the ONLY thing that ever calls the Open-Meteo API. All 30+ signage
 // screens read weather.json instead, so Open-Meteo's rate limit is
 // never touched no matter how many screens you deploy.
-
 import { writeFileSync } from 'fs';
 
 // Keep this list in sync with PINNED + POOL in the signage HTML file.
@@ -53,20 +52,36 @@ const CITIES = [
   ["Taipei",25.0330,121.5654]
 ];
 
+// Retries on 429 (rate limit) and 5xx (server error) with exponential
+// backoff + jitter. Leaves other errors (4xx like bad params) to fail fast.
+async function fetchWithRetry(url, retries = 4, baseDelayMs = 3000) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url);
+    if (res.ok) return res;
+
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt === retries) {
+      throw new Error(`Open-Meteo request failed: ${res.status}`);
+    }
+
+    const jitter = Math.random() * 1000;
+    const delay = baseDelayMs * Math.pow(2, attempt) + jitter;
+    console.warn(`Open-Meteo ${res.status}, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${retries})`);
+    await new Promise(r => setTimeout(r, delay));
+  }
+}
+
 async function main(){
   const lats = CITIES.map(c => c[1]).join(',');
   const lons = CITIES.map(c => c[2]).join(',');
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=temperature_2m,weather_code`;
 
-  const res = await fetch(url);
-  if(!res.ok){
-    throw new Error(`Open-Meteo request failed: ${res.status}`);
-  }
+  const res = await fetchWithRetry(url);
   const data = await res.json();
+
   // With multiple locations, Open-Meteo returns an array of forecast
   // objects, in the same order as the input lat/lon lists.
   const list = Array.isArray(data) ? data : [data];
-
   const out = { generatedAt: new Date().toISOString(), cities: {} };
   CITIES.forEach((c, i) => {
     const d = list[i];
@@ -77,11 +92,9 @@ async function main(){
       };
     }
   });
-
   writeFileSync('weather.json', JSON.stringify(out));
   console.log(`Wrote weather.json with ${Object.keys(out.cities).length} cities`);
 }
-
 main().catch(err => {
   console.error(err);
   process.exit(1);
