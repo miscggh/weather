@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Fetch weather (single batched Open-Meteo call)
         run: node update-weather.mjs
       - name: Commit and push if weather.json changed
