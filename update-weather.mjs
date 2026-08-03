@@ -57,17 +57,26 @@ const CITIES = [
 // backoff + jitter. Leaves other errors (4xx like bad params) to fail fast.
 async function fetchWithRetry(url, retries = 4, baseDelayMs = 3000) {
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(url);
-    if (res.ok) return res;
+    try {
+      const res = await fetch(url);
+      if (res.ok) return res;
 
-    const retryable = res.status === 429 || res.status >= 500;
-    if (!retryable || attempt === retries) {
-      throw new Error(`Open-Meteo request failed: ${res.status}`);
+      const retryable = res.status === 429 || res.status >= 500;
+      if (!retryable || attempt === retries) {
+        throw new Error(`Open-Meteo request failed: ${res.status}`);
+      }
+    } catch (err) {
+      // Network-level failures (timeout, DNS, connection reset) land here,
+      // since fetch() throws before a response is ever received.
+      if (attempt === retries) {
+        throw new Error(`Open-Meteo request failed after ${retries} retries: ${err.message}`);
+      }
+      console.warn(`Fetch error (${err.message}), retrying...`);
     }
 
     const jitter = Math.random() * 1000;
     const delay = baseDelayMs * Math.pow(2, attempt) + jitter;
-    console.warn(`Open-Meteo ${res.status}, retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${retries})`);
+    console.warn(`Retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${retries})`);
     await new Promise(r => setTimeout(r, delay));
   }
 }
